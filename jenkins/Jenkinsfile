@@ -1,0 +1,305 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_IMAGE = 'taskmanager/task-management-api'
+        DOCKER_TAG = "${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = 'docker-hub-credentials'
+        
+        // Database credentials
+        DB_USERNAME = credentials('db-username')
+        DB_PASSWORD = credentials('db-password')
+        
+        // SonarQube configuration
+        SONAR_PROJECT_KEY = 'task-management-api'
+        SONAR_HOST_URL = 'http://sonarqube:9000'
+        SONAR_LOGIN = credentials('sonarqube-token')
+    }
+    
+    tools {
+        maven 'Maven-3.8.6'
+        jdk 'OpenJDK-11'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out source code...'
+                checkout scm
+                
+                script {
+                    // Get Git commit info
+                    env.GIT_COMMIT_MSG = sh(
+                        script: 'git log -1 --pretty=%B',
+                        returnStdout: true
+                    ).trim()
+                    env.GIT_AUTHOR = sh(
+                        script: 'git log -1 --pretty=%an',
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                echo 'Building the application...'
+                sh 'mvn clean compile'
+            }
+            post {
+                success {
+                    echo 'Build completed successfully!'
+                }
+                failure {
+                    echo 'Build failed!'
+                }
+            }
+        }
+        
+        stage('Unit Tests') {
+            steps {
+                echo 'Running unit tests...'
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    // Publish test results
+                    publishTestResults testResultsPattern: 'target/surefire-reports/*.xml'
+                    
+                    // Publish JaCoCo coverage report
+                    publishCoverage adapters: [
+                        jacocoAdapter('target/site/jacoco/jacoco.xml')
+                    ], sourceFileResolver: sourceFiles('NEVER_STORE')
+                }
+                success {
+                    echo 'Unit tests passed!'
+                }
+                failure {
+                    echo 'Unit tests failed!'
+                }
+            }
+        }
+        
+        stage('Code Quality Analysis') {
+            parallel {
+                stage('SonarQube Analysis') {
+                    steps {
+                        echo 'Running SonarQube analysis...'
+                        withSonarQubeEnv('SonarQube') {
+                            sh '''
+                                mvn sonar:sonar \
+                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                    -Dsonar.host.url=${SONAR_HOST_URL} \
+                                    -Dsonar.login=${SONAR_LOGIN}
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Checkstyle Analysis') {
+                    steps {
+                        echo 'Running Checkstyle analysis...'
+                        sh 'mvn checkstyle:check'
+                    }
+                    post {
+                        always {
+                            recordIssues enabledForFailure: true, tools: [checkStyle()]
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                echo 'Waiting for SonarQube Quality Gate...'
+                timeout(time: 1, unit: 'HOURS') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        
+        stage('Integration Tests') {
+            steps {
+                echo 'Running integration tests...'
+                sh 'mvn failsafe:integration-test failsafe:verify'
+            }
+            post {
+                always {
+                    publishTestResults testResultsPattern: 'target/failsafe-reports/*.xml'
+                }
+                success {
+                    echo 'Integration tests passed!'
+                }
+                failure {
+                    echo 'Integration tests failed!'
+                }
+            }
+        }
+        
+        stage('Package') {
+            steps {
+                echo 'Packaging the application...'
+                sh 'mvn package -DskipTests'
+            }
+            post {
+                success {
+                    // Archive the built artifacts
+                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                    echo 'Application packaged successfully!'
+                }
+            }
+        }
+        
+        stage('Docker Build') {
+            steps {
+                echo 'Building Docker image...'
+                script {
+                    def dockerImage = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", "-f docker/Dockerfile .")
+                    dockerImage.tag("${DOCKER_IMAGE}:latest")
+                }
+            }
+        }
+        
+        stage('Security Scan') {
+            steps {
+                echo 'Running security scan...'
+                sh '''
+                    # Trivy security scan
+                    trivy image --exit-code 0 --severity HIGH,CRITICAL \
+                        --format template --template "@contrib/sarif.tpl" \
+                        -o trivy-results.sarif ${DOCKER_IMAGE}:${DOCKER_TAG}
+                '''
+            }
+            post {
+                always {
+                    // Archive security scan results
+                    archiveArtifacts artifacts: 'trivy-results.sarif', allowEmptyArchive: true
+                }
+            }
+        }
+        
+        stage('Deploy to Staging') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                echo 'Deploying to staging environment...'
+                script {
+                    // Deploy using Ansible
+                    ansiblePlaybook(
+                        playbook: 'infrastructure/ansible/deploy-staging.yml',
+                        inventory: 'infrastructure/ansible/inventory/staging',
+                        extraVars: [
+                            docker_image: "${DOCKER_IMAGE}:${DOCKER_TAG}",
+                            db_username: "${DB_USERNAME}",
+                            db_password: "${DB_PASSWORD}"
+                        ],
+                        credentialsId: 'ansible-ssh-key'
+                    )
+                }
+            }
+            post {
+                success {
+                    echo 'Staging deployment successful!'
+                    // Run smoke tests
+                    sh 'curl -f http://staging.taskmanager.local:8080/api/tasks/health'
+                }
+                failure {
+                    echo 'Staging deployment failed!'
+                }
+            }
+        }
+        
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo 'Deploying to production environment...'
+                input message: 'Deploy to production?', ok: 'Deploy'
+                
+                script {
+                    // Deploy using Ansible
+                    ansiblePlaybook(
+                        playbook: 'infrastructure/ansible/deploy-production.yml',
+                        inventory: 'infrastructure/ansible/inventory/production',
+                        extraVars: [
+                            docker_image: "${DOCKER_IMAGE}:${DOCKER_TAG}",
+                            db_username: "${DB_USERNAME}",
+                            db_password: "${DB_PASSWORD}"
+                        ],
+                        credentialsId: 'ansible-ssh-key'
+                    )
+                }
+            }
+            post {
+                success {
+                    echo 'Production deployment successful!'
+                    // Run smoke tests
+                    sh 'curl -f http://prod.taskmanager.local:8080/api/tasks/health'
+                }
+                failure {
+                    echo 'Production deployment failed!'
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'Pipeline execution completed.'
+            
+            // Clean up workspace
+            cleanWs()
+            
+            // Send notifications
+            script {
+                def buildStatus = currentBuild.result ?: 'SUCCESS'
+                def subject = "Jenkins Build ${buildStatus}: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+                def body = """
+                    Build Status: ${buildStatus}
+                    Job: ${env.JOB_NAME}
+                    Build Number: ${env.BUILD_NUMBER}
+                    Git Commit: ${env.GIT_COMMIT_MSG}
+                    Git Author: ${env.GIT_AUTHOR}
+                    Build URL: ${env.BUILD_URL}
+                """
+                
+                emailext(
+                    subject: subject,
+                    body: body,
+                    to: 'team@taskmanager.com',
+                    mimeType: 'text/plain'
+                )
+            }
+        }
+        
+        success {
+            echo 'Pipeline completed successfully!'
+            slackSend(
+                channel: '#devops',
+                color: 'good',
+                message: "✅ Build successful: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+            )
+        }
+        
+        failure {
+            echo 'Pipeline failed!'
+            slackSend(
+                channel: '#devops',
+                color: 'danger',
+                message: "❌ Build failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+            )
+        }
+        
+        unstable {
+            echo 'Pipeline completed with warnings!'
+            slackSend(
+                channel: '#devops',
+                color: 'warning',
+                message: "⚠️ Build unstable: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+            )
+        }
+    }
+}

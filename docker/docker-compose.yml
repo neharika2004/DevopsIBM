@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: taskmanager-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: taskmanager_db
+      MYSQL_USER: taskmanager
+      MYSQL_PASSWORD: taskmanager123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - taskmanager-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Task Management API Application
+  task-manager:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: taskmanager-api
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_USERNAME: taskmanager
+      DB_PASSWORD: taskmanager123
+      GRAPHITE_HOST: graphite
+      GRAPHITE_PORT: 2003
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - taskmanager-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      timeout: 30s
+      retries: 3
+
+  # Graphite for metrics collection
+  graphite:
+    image: graphiteapp/graphite-statsd:latest
+    container_name: taskmanager-graphite
+    ports:
+      - "8082:80"     # Graphite Web UI
+      - "2003:2003"   # Carbon receiver (plain text)
+      - "2004:2004"   # Carbon receiver (pickle)
+      - "7002:7002"   # Carbon cache query
+      - "8125:8125/udp" # StatsD
+    volumes:
+      - graphite_data:/opt/graphite/storage
+    networks:
+      - taskmanager-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: taskmanager-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - graphite
+    networks:
+      - taskmanager-network
+
+  # Jenkins for CI/CD
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: taskmanager-jenkins
+    ports:
+      - "8081:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+    networks:
+      - taskmanager-network
+
+volumes:
+  mysql_data:
+  graphite_data:
+  grafana_data:
+  jenkins_data:
+
+networks:
+  taskmanager-network:
+    driver: bridge

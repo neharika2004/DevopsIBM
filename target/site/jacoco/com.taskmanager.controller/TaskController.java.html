@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TaskController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Task Management API</a> &gt; <a href="index.source.html" class="el_package">com.taskmanager.controller</a> &gt; <span class="el_source">TaskController.java</span></div><h1>TaskController.java</h1><pre class="source lang-java linenums">package com.taskmanager.controller;
+
+import com.taskmanager.model.Task;
+import com.taskmanager.model.TaskPriority;
+import com.taskmanager.model.TaskStatus;
+import com.taskmanager.service.TaskService;
+import io.micrometer.core.annotation.Timed;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping(&quot;/api/tasks&quot;)
+@CrossOrigin(origins = &quot;*&quot;)
+<span class="fc" id="L22">public class TaskController {</span>
+    
+<span class="fc" id="L24">    private static final Logger logger = LoggerFactory.getLogger(TaskController.class);</span>
+    
+    @Autowired
+    private TaskService taskService;
+    
+    // Health check endpoint
+    @GetMapping(&quot;/health&quot;)
+    public ResponseEntity&lt;String&gt; health() {
+<span class="fc" id="L32">        return ResponseEntity.ok(&quot;Task Management API is running!&quot;);</span>
+    }
+    
+    // Create a new task
+    @PostMapping
+    @Timed(value = &quot;task.create&quot;, description = &quot;Time taken to create a task&quot;)
+    public ResponseEntity&lt;Task&gt; createTask(@Valid @RequestBody Task task) {
+<span class="fc" id="L39">        logger.info(&quot;Received request to create task: {}&quot;, task.getTitle());</span>
+        try {
+<span class="fc" id="L41">            Task createdTask = taskService.createTask(task);</span>
+<span class="fc" id="L42">            return new ResponseEntity&lt;&gt;(createdTask, HttpStatus.CREATED);</span>
+<span class="nc" id="L43">        } catch (Exception e) {</span>
+<span class="nc" id="L44">            logger.error(&quot;Error creating task: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L45">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Get all tasks
+    @GetMapping
+    @Timed(value = &quot;task.getAll&quot;, description = &quot;Time taken to get all tasks&quot;)
+    public ResponseEntity&lt;List&lt;Task&gt;&gt; getAllTasks() {
+<span class="fc" id="L53">        logger.info(&quot;Received request to get all tasks&quot;);</span>
+        try {
+<span class="fc" id="L55">            List&lt;Task&gt; tasks = taskService.getAllTasks();</span>
+<span class="fc" id="L56">            return new ResponseEntity&lt;&gt;(tasks, HttpStatus.OK);</span>
+<span class="nc" id="L57">        } catch (Exception e) {</span>
+<span class="nc" id="L58">            logger.error(&quot;Error retrieving tasks: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L59">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Get task by ID
+    @GetMapping(&quot;/{id}&quot;)
+    @Timed(value = &quot;task.getById&quot;, description = &quot;Time taken to get a task by ID&quot;)
+    public ResponseEntity&lt;Task&gt; getTaskById(@PathVariable Long id) {
+<span class="fc" id="L67">        logger.info(&quot;Received request to get task with ID: {}&quot;, id);</span>
+        try {
+<span class="fc" id="L69">            Optional&lt;Task&gt; task = taskService.getTaskById(id);</span>
+<span class="fc" id="L70">            return task.map(t -&gt; new ResponseEntity&lt;&gt;(t, HttpStatus.OK))</span>
+<span class="fc" id="L71">                      .orElse(new ResponseEntity&lt;&gt;(HttpStatus.NOT_FOUND));</span>
+<span class="nc" id="L72">        } catch (Exception e) {</span>
+<span class="nc" id="L73">            logger.error(&quot;Error retrieving task with ID {}: {}&quot;, id, e.getMessage());</span>
+<span class="nc" id="L74">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Update task
+    @PutMapping(&quot;/{id}&quot;)
+    @Timed(value = &quot;task.update&quot;, description = &quot;Time taken to update a task&quot;)
+    public ResponseEntity&lt;Task&gt; updateTask(@PathVariable Long id, @Valid @RequestBody Task taskDetails) {
+<span class="fc" id="L82">        logger.info(&quot;Received request to update task with ID: {}&quot;, id);</span>
+        try {
+<span class="fc" id="L84">            Task updatedTask = taskService.updateTask(id, taskDetails);</span>
+<span class="fc" id="L85">            return new ResponseEntity&lt;&gt;(updatedTask, HttpStatus.OK);</span>
+<span class="nc" id="L86">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L87">            logger.error(&quot;Task not found with ID: {}&quot;, id);</span>
+<span class="nc" id="L88">            return new ResponseEntity&lt;&gt;(HttpStatus.NOT_FOUND);</span>
+<span class="nc" id="L89">        } catch (Exception e) {</span>
+<span class="nc" id="L90">            logger.error(&quot;Error updating task with ID {}: {}&quot;, id, e.getMessage());</span>
+<span class="nc" id="L91">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Delete task
+    @DeleteMapping(&quot;/{id}&quot;)
+    @Timed(value = &quot;task.delete&quot;, description = &quot;Time taken to delete a task&quot;)
+    public ResponseEntity&lt;Void&gt; deleteTask(@PathVariable Long id) {
+<span class="fc" id="L99">        logger.info(&quot;Received request to delete task with ID: {}&quot;, id);</span>
+        try {
+<span class="fc" id="L101">            taskService.deleteTask(id);</span>
+<span class="fc" id="L102">            return new ResponseEntity&lt;&gt;(HttpStatus.NO_CONTENT);</span>
+<span class="nc" id="L103">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L104">            logger.error(&quot;Task not found with ID: {}&quot;, id);</span>
+<span class="nc" id="L105">            return new ResponseEntity&lt;&gt;(HttpStatus.NOT_FOUND);</span>
+<span class="nc" id="L106">        } catch (Exception e) {</span>
+<span class="nc" id="L107">            logger.error(&quot;Error deleting task with ID {}: {}&quot;, id, e.getMessage());</span>
+<span class="nc" id="L108">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Get tasks by status
+    @GetMapping(&quot;/status/{status}&quot;)
+    @Timed(value = &quot;task.getByStatus&quot;, description = &quot;Time taken to get tasks by status&quot;)
+    public ResponseEntity&lt;List&lt;Task&gt;&gt; getTasksByStatus(@PathVariable TaskStatus status) {
+<span class="fc" id="L116">        logger.info(&quot;Received request to get tasks with status: {}&quot;, status);</span>
+        try {
+<span class="fc" id="L118">            List&lt;Task&gt; tasks = taskService.getTasksByStatus(status);</span>
+<span class="fc" id="L119">            return new ResponseEntity&lt;&gt;(tasks, HttpStatus.OK);</span>
+<span class="nc" id="L120">        } catch (Exception e) {</span>
+<span class="nc" id="L121">            logger.error(&quot;Error retrieving tasks by status {}: {}&quot;, status, e.getMessage());</span>
+<span class="nc" id="L122">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Get tasks by priority
+    @GetMapping(&quot;/priority/{priority}&quot;)
+    @Timed(value = &quot;task.getByPriority&quot;, description = &quot;Time taken to get tasks by priority&quot;)
+    public ResponseEntity&lt;List&lt;Task&gt;&gt; getTasksByPriority(@PathVariable TaskPriority priority) {
+<span class="nc" id="L130">        logger.info(&quot;Received request to get tasks with priority: {}&quot;, priority);</span>
+        try {
+<span class="nc" id="L132">            List&lt;Task&gt; tasks = taskService.getTasksByPriority(priority);</span>
+<span class="nc" id="L133">            return new ResponseEntity&lt;&gt;(tasks, HttpStatus.OK);</span>
+<span class="nc" id="L134">        } catch (Exception e) {</span>
+<span class="nc" id="L135">            logger.error(&quot;Error retrieving tasks by priority {}: {}&quot;, priority, e.getMessage());</span>
+<span class="nc" id="L136">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Get tasks by assigned user
+    @GetMapping(&quot;/assigned/{assignedTo}&quot;)
+    @Timed(value = &quot;task.getByAssigned&quot;, description = &quot;Time taken to get tasks by assigned user&quot;)
+    public ResponseEntity&lt;List&lt;Task&gt;&gt; getTasksByAssignedTo(@PathVariable String assignedTo) {
+<span class="nc" id="L144">        logger.info(&quot;Received request to get tasks assigned to: {}&quot;, assignedTo);</span>
+        try {
+<span class="nc" id="L146">            List&lt;Task&gt; tasks = taskService.getTasksByAssignedTo(assignedTo);</span>
+<span class="nc" id="L147">            return new ResponseEntity&lt;&gt;(tasks, HttpStatus.OK);</span>
+<span class="nc" id="L148">        } catch (Exception e) {</span>
+<span class="nc" id="L149">            logger.error(&quot;Error retrieving tasks assigned to {}: {}&quot;, assignedTo, e.getMessage());</span>
+<span class="nc" id="L150">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Get overdue tasks
+    @GetMapping(&quot;/overdue&quot;)
+    @Timed(value = &quot;task.getOverdue&quot;, description = &quot;Time taken to get overdue tasks&quot;)
+    public ResponseEntity&lt;List&lt;Task&gt;&gt; getOverdueTasks() {
+<span class="nc" id="L158">        logger.info(&quot;Received request to get overdue tasks&quot;);</span>
+        try {
+<span class="nc" id="L160">            List&lt;Task&gt; tasks = taskService.getOverdueTasks();</span>
+<span class="nc" id="L161">            return new ResponseEntity&lt;&gt;(tasks, HttpStatus.OK);</span>
+<span class="nc" id="L162">        } catch (Exception e) {</span>
+<span class="nc" id="L163">            logger.error(&quot;Error retrieving overdue tasks: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L164">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Get high priority pending tasks
+    @GetMapping(&quot;/high-priority-pending&quot;)
+    @Timed(value = &quot;task.getHighPriorityPending&quot;, description = &quot;Time taken to get high priority pending tasks&quot;)
+    public ResponseEntity&lt;List&lt;Task&gt;&gt; getHighPriorityPendingTasks() {
+<span class="nc" id="L172">        logger.info(&quot;Received request to get high priority pending tasks&quot;);</span>
+        try {
+<span class="nc" id="L174">            List&lt;Task&gt; tasks = taskService.getHighPriorityPendingTasks();</span>
+<span class="nc" id="L175">            return new ResponseEntity&lt;&gt;(tasks, HttpStatus.OK);</span>
+<span class="nc" id="L176">        } catch (Exception e) {</span>
+<span class="nc" id="L177">            logger.error(&quot;Error retrieving high priority pending tasks: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L178">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Search tasks by title
+    @GetMapping(&quot;/search/title&quot;)
+    @Timed(value = &quot;task.searchByTitle&quot;, description = &quot;Time taken to search tasks by title&quot;)
+    public ResponseEntity&lt;List&lt;Task&gt;&gt; searchTasksByTitle(@RequestParam String keyword) {
+<span class="nc" id="L186">        logger.info(&quot;Received request to search tasks by title keyword: {}&quot;, keyword);</span>
+        try {
+<span class="nc" id="L188">            List&lt;Task&gt; tasks = taskService.searchTasksByTitle(keyword);</span>
+<span class="nc" id="L189">            return new ResponseEntity&lt;&gt;(tasks, HttpStatus.OK);</span>
+<span class="nc" id="L190">        } catch (Exception e) {</span>
+<span class="nc" id="L191">            logger.error(&quot;Error searching tasks by title {}: {}&quot;, keyword, e.getMessage());</span>
+<span class="nc" id="L192">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Search tasks by description
+    @GetMapping(&quot;/search/description&quot;)
+    @Timed(value = &quot;task.searchByDescription&quot;, description = &quot;Time taken to search tasks by description&quot;)
+    public ResponseEntity&lt;List&lt;Task&gt;&gt; searchTasksByDescription(@RequestParam String keyword) {
+<span class="nc" id="L200">        logger.info(&quot;Received request to search tasks by description keyword: {}&quot;, keyword);</span>
+        try {
+<span class="nc" id="L202">            List&lt;Task&gt; tasks = taskService.searchTasksByDescription(keyword);</span>
+<span class="nc" id="L203">            return new ResponseEntity&lt;&gt;(tasks, HttpStatus.OK);</span>
+<span class="nc" id="L204">        } catch (Exception e) {</span>
+<span class="nc" id="L205">            logger.error(&quot;Error searching tasks by description {}: {}&quot;, keyword, e.getMessage());</span>
+<span class="nc" id="L206">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Get task statistics
+    @GetMapping(&quot;/statistics&quot;)
+    @Timed(value = &quot;task.getStatistics&quot;, description = &quot;Time taken to get task statistics&quot;)
+    public ResponseEntity&lt;TaskService.TaskStatistics&gt; getTaskStatistics() {
+<span class="nc" id="L214">        logger.info(&quot;Received request to get task statistics&quot;);</span>
+        try {
+<span class="nc" id="L216">            TaskService.TaskStatistics statistics = taskService.getTaskStatistics();</span>
+<span class="nc" id="L217">            return new ResponseEntity&lt;&gt;(statistics, HttpStatus.OK);</span>
+<span class="nc" id="L218">        } catch (Exception e) {</span>
+<span class="nc" id="L219">            logger.error(&quot;Error retrieving task statistics: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L220">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+    
+    // Mark task as completed
+    @PatchMapping(&quot;/{id}/complete&quot;)
+    @Timed(value = &quot;task.markCompleted&quot;, description = &quot;Time taken to mark a task as completed&quot;)
+    public ResponseEntity&lt;Task&gt; markTaskAsCompleted(@PathVariable Long id) {
+<span class="fc" id="L228">        logger.info(&quot;Received request to mark task as completed: {}&quot;, id);</span>
+        try {
+<span class="fc" id="L230">            Task completedTask = taskService.markTaskAsCompleted(id);</span>
+<span class="fc" id="L231">            return new ResponseEntity&lt;&gt;(completedTask, HttpStatus.OK);</span>
+<span class="nc" id="L232">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L233">            logger.error(&quot;Task not found with ID: {}&quot;, id);</span>
+<span class="nc" id="L234">            return new ResponseEntity&lt;&gt;(HttpStatus.NOT_FOUND);</span>
+<span class="nc" id="L235">        } catch (Exception e) {</span>
+<span class="nc" id="L236">            logger.error(&quot;Error marking task as completed with ID {}: {}&quot;, id, e.getMessage());</span>
+<span class="nc" id="L237">            return new ResponseEntity&lt;&gt;(HttpStatus.INTERNAL_SERVER_ERROR);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

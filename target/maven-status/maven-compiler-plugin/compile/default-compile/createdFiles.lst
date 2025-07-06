@@ -1,0 +1,10 @@
+com/taskmanager/model/TaskPriority.class
+com/taskmanager/service/TaskService.class
+com/taskmanager/model/Task.class
+com/taskmanager/config/MonitoringConfig.class
+com/taskmanager/repository/TaskRepository.class
+com/taskmanager/model/TaskStatus.class
+com/taskmanager/service/TaskService$TaskStatistics.class
+com/taskmanager/TaskManagerApplication.class
+com/taskmanager/controller/TaskController.class
+com/taskmanager/config/MonitoringConfig$1.class

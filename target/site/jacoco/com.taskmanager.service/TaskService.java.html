@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TaskService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Task Management API</a> &gt; <a href="index.source.html" class="el_package">com.taskmanager.service</a> &gt; <span class="el_source">TaskService.java</span></div><h1>TaskService.java</h1><pre class="source lang-java linenums">package com.taskmanager.service;
+
+import com.taskmanager.model.Task;
+import com.taskmanager.model.TaskPriority;
+import com.taskmanager.model.TaskStatus;
+import com.taskmanager.repository.TaskRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+<span class="fc" id="L17">public class TaskService {</span>
+    
+<span class="fc" id="L19">    private static final Logger logger = LoggerFactory.getLogger(TaskService.class);</span>
+    
+    @Autowired
+    private TaskRepository taskRepository;
+    
+    // Create a new task
+    public Task createTask(Task task) {
+<span class="fc" id="L26">        logger.info(&quot;Creating new task: {}&quot;, task.getTitle());</span>
+        
+        // Set default values if not provided
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">        if (task.getStatus() == null) {</span>
+<span class="nc" id="L30">            task.setStatus(TaskStatus.PENDING);</span>
+        }
+<span class="pc bpc" id="L32" title="1 of 2 branches missed.">        if (task.getPriority() == null) {</span>
+<span class="nc" id="L33">            task.setPriority(TaskPriority.MEDIUM);</span>
+        }
+        
+<span class="fc" id="L36">        Task savedTask = taskRepository.save(task);</span>
+<span class="fc" id="L37">        logger.info(&quot;Task created successfully with ID: {}&quot;, savedTask.getId());</span>
+<span class="fc" id="L38">        return savedTask;</span>
+    }
+    
+    // Get all tasks
+    public List&lt;Task&gt; getAllTasks() {
+<span class="fc" id="L43">        logger.info(&quot;Retrieving all tasks&quot;);</span>
+<span class="fc" id="L44">        return taskRepository.findAll();</span>
+    }
+    
+    // Get task by ID
+    public Optional&lt;Task&gt; getTaskById(Long id) {
+<span class="fc" id="L49">        logger.info(&quot;Retrieving task with ID: {}&quot;, id);</span>
+<span class="fc" id="L50">        return taskRepository.findById(id);</span>
+    }
+    
+    // Update task
+    public Task updateTask(Long id, Task taskDetails) {
+<span class="fc" id="L55">        logger.info(&quot;Updating task with ID: {}&quot;, id);</span>
+        
+<span class="fc" id="L57">        return taskRepository.findById(id)</span>
+<span class="fc" id="L58">                .map(task -&gt; {</span>
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">                    if (taskDetails.getTitle() != null) {</span>
+<span class="fc" id="L60">                        task.setTitle(taskDetails.getTitle());</span>
+                    }
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">                    if (taskDetails.getDescription() != null) {</span>
+<span class="fc" id="L63">                        task.setDescription(taskDetails.getDescription());</span>
+                    }
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">                    if (taskDetails.getStatus() != null) {</span>
+<span class="fc" id="L66">                        task.setStatus(taskDetails.getStatus());</span>
+                    }
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">                    if (taskDetails.getPriority() != null) {</span>
+<span class="fc" id="L69">                        task.setPriority(taskDetails.getPriority());</span>
+                    }
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">                    if (taskDetails.getDueDate() != null) {</span>
+<span class="nc" id="L72">                        task.setDueDate(taskDetails.getDueDate());</span>
+                    }
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">                    if (taskDetails.getAssignedTo() != null) {</span>
+<span class="nc" id="L75">                        task.setAssignedTo(taskDetails.getAssignedTo());</span>
+                    }
+                    
+<span class="fc" id="L78">                    Task updatedTask = taskRepository.save(task);</span>
+<span class="fc" id="L79">                    logger.info(&quot;Task updated successfully: {}&quot;, updatedTask.getId());</span>
+<span class="fc" id="L80">                    return updatedTask;</span>
+                })
+<span class="fc" id="L82">                .orElseThrow(() -&gt; {</span>
+<span class="fc" id="L83">                    logger.error(&quot;Task not found with ID: {}&quot;, id);</span>
+<span class="fc" id="L84">                    return new RuntimeException(&quot;Task not found with ID: &quot; + id);</span>
+                });
+    }
+    
+    // Delete task
+    public void deleteTask(Long id) {
+<span class="fc" id="L90">        logger.info(&quot;Deleting task with ID: {}&quot;, id);</span>
+        
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (taskRepository.existsById(id)) {</span>
+<span class="fc" id="L93">            taskRepository.deleteById(id);</span>
+<span class="fc" id="L94">            logger.info(&quot;Task deleted successfully: {}&quot;, id);</span>
+        } else {
+<span class="fc" id="L96">            logger.error(&quot;Task not found with ID: {}&quot;, id);</span>
+<span class="fc" id="L97">            throw new RuntimeException(&quot;Task not found with ID: &quot; + id);</span>
+        }
+<span class="fc" id="L99">    }</span>
+    
+    // Get tasks by status
+    public List&lt;Task&gt; getTasksByStatus(TaskStatus status) {
+<span class="fc" id="L103">        logger.info(&quot;Retrieving tasks with status: {}&quot;, status);</span>
+<span class="fc" id="L104">        return taskRepository.findByStatus(status);</span>
+    }
+    
+    // Get tasks by priority
+    public List&lt;Task&gt; getTasksByPriority(TaskPriority priority) {
+<span class="fc" id="L109">        logger.info(&quot;Retrieving tasks with priority: {}&quot;, priority);</span>
+<span class="fc" id="L110">        return taskRepository.findByPriority(priority);</span>
+    }
+    
+    // Get tasks by assigned user
+    public List&lt;Task&gt; getTasksByAssignedTo(String assignedTo) {
+<span class="fc" id="L115">        logger.info(&quot;Retrieving tasks assigned to: {}&quot;, assignedTo);</span>
+<span class="fc" id="L116">        return taskRepository.findByAssignedTo(assignedTo);</span>
+    }
+    
+    // Get overdue tasks
+    public List&lt;Task&gt; getOverdueTasks() {
+<span class="nc" id="L121">        logger.info(&quot;Retrieving overdue tasks&quot;);</span>
+<span class="nc" id="L122">        return taskRepository.findOverdueTasks(LocalDateTime.now());</span>
+    }
+    
+    // Get high priority pending tasks
+    public List&lt;Task&gt; getHighPriorityPendingTasks() {
+<span class="nc" id="L127">        logger.info(&quot;Retrieving high priority pending tasks&quot;);</span>
+<span class="nc" id="L128">        return taskRepository.findHighPriorityPendingTasks();</span>
+    }
+    
+    // Search tasks by title
+    public List&lt;Task&gt; searchTasksByTitle(String keyword) {
+<span class="fc" id="L133">        logger.info(&quot;Searching tasks by title keyword: {}&quot;, keyword);</span>
+<span class="fc" id="L134">        return taskRepository.findByTitleContainingIgnoreCase(keyword);</span>
+    }
+    
+    // Search tasks by description
+    public List&lt;Task&gt; searchTasksByDescription(String keyword) {
+<span class="fc" id="L139">        logger.info(&quot;Searching tasks by description keyword: {}&quot;, keyword);</span>
+<span class="fc" id="L140">        return taskRepository.findByDescriptionContainingIgnoreCase(keyword);</span>
+    }
+    
+    // Get task statistics
+    public TaskStatistics getTaskStatistics() {
+<span class="fc" id="L145">        logger.info(&quot;Retrieving task statistics&quot;);</span>
+        
+<span class="fc" id="L147">        long totalTasks = taskRepository.count();</span>
+<span class="fc" id="L148">        long pendingTasks = taskRepository.countByStatus(TaskStatus.PENDING);</span>
+<span class="fc" id="L149">        long inProgressTasks = taskRepository.countByStatus(TaskStatus.IN_PROGRESS);</span>
+<span class="fc" id="L150">        long completedTasks = taskRepository.countByStatus(TaskStatus.COMPLETED);</span>
+<span class="fc" id="L151">        long cancelledTasks = taskRepository.countByStatus(TaskStatus.CANCELLED);</span>
+        
+<span class="fc" id="L153">        return new TaskStatistics(totalTasks, pendingTasks, inProgressTasks, completedTasks, cancelledTasks);</span>
+    }
+    
+    // Mark task as completed
+    public Task markTaskAsCompleted(Long id) {
+<span class="fc" id="L158">        logger.info(&quot;Marking task as completed: {}&quot;, id);</span>
+        
+<span class="fc" id="L160">        return taskRepository.findById(id)</span>
+<span class="fc" id="L161">                .map(task -&gt; {</span>
+<span class="fc" id="L162">                    task.setStatus(TaskStatus.COMPLETED);</span>
+<span class="fc" id="L163">                    Task updatedTask = taskRepository.save(task);</span>
+<span class="fc" id="L164">                    logger.info(&quot;Task marked as completed: {}&quot;, updatedTask.getId());</span>
+<span class="fc" id="L165">                    return updatedTask;</span>
+                })
+<span class="fc" id="L167">                .orElseThrow(() -&gt; {</span>
+<span class="fc" id="L168">                    logger.error(&quot;Task not found with ID: {}&quot;, id);</span>
+<span class="fc" id="L169">                    return new RuntimeException(&quot;Task not found with ID: &quot; + id);</span>
+                });
+    }
+    
+    // Inner class for task statistics
+    public static class TaskStatistics {
+        private final long totalTasks;
+        private final long pendingTasks;
+        private final long inProgressTasks;
+        private final long completedTasks;
+        private final long cancelledTasks;
+        
+<span class="fc" id="L181">        public TaskStatistics(long totalTasks, long pendingTasks, long inProgressTasks, long completedTasks, long cancelledTasks) {</span>
+<span class="fc" id="L182">            this.totalTasks = totalTasks;</span>
+<span class="fc" id="L183">            this.pendingTasks = pendingTasks;</span>
+<span class="fc" id="L184">            this.inProgressTasks = inProgressTasks;</span>
+<span class="fc" id="L185">            this.completedTasks = completedTasks;</span>
+<span class="fc" id="L186">            this.cancelledTasks = cancelledTasks;</span>
+<span class="fc" id="L187">        }</span>
+        
+        // Getters
+<span class="fc" id="L190">        public long getTotalTasks() { return totalTasks; }</span>
+<span class="fc" id="L191">        public long getPendingTasks() { return pendingTasks; }</span>
+<span class="fc" id="L192">        public long getInProgressTasks() { return inProgressTasks; }</span>
+<span class="fc" id="L193">        public long getCompletedTasks() { return completedTasks; }</span>
+<span class="fc" id="L194">        public long getCancelledTasks() { return cancelledTasks; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

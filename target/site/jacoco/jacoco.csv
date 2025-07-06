@@ -1,0 +1,10 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+Task Management API,com.taskmanager.config,MonitoringConfig,0,17,0,0,0,4,0,3,0,3
+Task Management API,com.taskmanager.config,MonitoringConfig.new GraphiteConfig() {...},0,23,0,0,0,6,0,6,0,6
+Task Management API,com.taskmanager.service,TaskService,29,273,8,10,8,65,10,19,2,18
+Task Management API,com.taskmanager.service,TaskService.TaskStatistics,0,33,0,0,0,12,0,6,0,6
+Task Management API,com.taskmanager.controller,TaskController,292,123,0,0,72,25,7,11,7,11
+Task Management API,com.taskmanager.model,TaskStatus,3,42,0,0,1,9,1,3,1,3
+Task Management API,com.taskmanager.model,TaskPriority,3,42,0,0,1,9,1,3,1,3
+Task Management API,com.taskmanager.model,Task,21,97,0,0,6,31,1,20,1,20
+Task Management API,com.taskmanager,TaskManagerApplication,5,3,0,0,2,1,1,1,1,1
